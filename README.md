@@ -1,42 +1,42 @@
-# API Wrapper for Telegram Bot Push Notifications
+# Push Notifications API
 
-Useful for server notifications. Send a `POST` request to `/send-push-notification-to-telegram` from your server and be notified on your telegram app.
+Useful for server notifications. Send a `POST` request to `/push-notification-to-telegram` from your server and be notified on your telegram app.
 
 
 # Quickstart
 
-Get the binary from releases or use the Dockerfile from this repo to add it to your docker-compose.yml file. 
 
-Next to your binary create a file named `telegram.config.json` which will contain the following:
+Go server binary can be created with this command:
+```shell
+GOOS=linux GOARCH=amd64 go build -o dist/server server.go
+```
+You can use the binary from `Releases` if you don't want to build it yourself.
 
+Contents of `.env` file:
+
+```shell
+TELEGRAM_API_TOKEN=BOTTOKEN:FROM:BotFather
+CHAT_ID=number-chat-id-after-first-exchange-message
+API_KEY=openssl rand -base64 33 | tr '+/' '-_' or something else
+PORT=4500 - port on which the GoFiber server will start
+```
+
+One way to get the chat_id you can find it [here](https://dev.to/climentea/push-notifications-from-server-with-telegram-bot-api-32b3).
+
+
+Checkout `static-site\index.html` from this repo to see an example on how you can send a message from a contact form straight to telegram.
+
+From any static site you just make a fetch post request to `/push-notification-to-telegram` with body:
 ```json
 {
-    "TELEGRAM_API_TOKEN": "TOKEN:FROM-BOTFATHER",
-    "CHAT_ID": 123123123, # a bit tricky to get your hands on
-    "API_KEY": "generate an apikey with: openssl rand -base64 32",
-    "PORT": 3000, # server will start at this port
-    "BOT_NAME": "@my_bot", # optional 
-    "BOT_SHORT_NAME": "@my_bot", # optional
-    "BOT_URL": "https://t.me/my_bot" # optional,
+  "message": "some message here, even some string json",
+  "apikey": "YjqkpUhZX9MFxhelTTyzg6cbzN4KYu4pbROsyYP5yc"
 }
 ```
 
-Start server with ./server (if you are using the binary).
-Now from your app send a post request like:
-
-```shell
-curl  -X POST \
-  'localhost:3000/send-push-notification-to-telegram' \
-  --header 'Accept: */*' \
-  --header 'User-Agent: Thunder Client (https://www.thunderclient.com)' \
-  --header 'Content-Type: application/json' \
-  --data-raw '{
-  "message": "some message here, even some string json",
-  "apikey": "YjqkpUhZX9MFxhelTTyzg6cbzN4KYu4pb/ROsyYP5yc="
-}'
-```
-
-Adapt the curl POST request for the programing language your are using.
+You can also use any server side language to make a post request (ex: another service in docker-compose.yml file).
 
 
-One way to get the chat_id you can find it [here](https://dev.to/climentea/push-notifications-from-server-with-telegram-bot-api-32b3).
+# Why?
+
+I need to be notified (for free) somehow that someone (or somebot) sent me a message thru my static sites contact forms. 

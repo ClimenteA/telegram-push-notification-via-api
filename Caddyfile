@@ -1,0 +1,16 @@
+# change from .localhost to your .com .co .io etc
+http://mysite.localhost {
+	
+	# tls yourEmailForSSL@gmail.com 
+
+	root * /srv/static-site
+	file_server browse
+
+}
+
+
+http://myapi.localhost {
+
+	reverse_proxy push-api:4500
+	
+}

@@ -1,0 +1,39 @@
+version: "3"
+
+services:
+
+  push-api:
+    container_name: telegram-push-notification-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 4500:4500
+    env_file:
+      - .env
+    networks:
+      - web
+
+  proxy:
+    container_name: telegram-static-website-proxy
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./static-site:/srv/static-site
+      - $PWD/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  web:
+    driver: bridge

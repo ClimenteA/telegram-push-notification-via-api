@@ -1,113 +1,124 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
-)
 
-type Config struct {
-	TelegramAPIToken string `json:"TELEGRAM_API_TOKEN"`
-	ChatID           int    `json:"CHAT_ID"`
-	ApiKey           string `json:"API_KEY"`
-	Port             int    `json:"PORT"`
-	BotName          string `json:"BOT_NAME"`
-	BotShortName     string `json:"BOT_SHORT_NAME"`
-	BotUrl           string `json:"BOT_URL"`
-}
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+
+	"github.com/joho/godotenv"
+)
 
 type PushNotificationRequest struct {
 	Message string `json:"message"`
 	ApiKey  string `json:"apikey"`
 }
 
-func getConfig() (Config, error) {
+type Config struct {
+	TelegramApiToken string `env:"TELEGRAM_API_TOKEN,required"`
+	ChatId           string `env:"CHAT_ID,required"`
+	ApiKey           string `env:"API_KEY,required"`
+	Port             string `env:"PORT,required"`
+	AllowOrigins     string `env:"ALLOW_ORIGINS,required"`
+}
 
-	file, err := os.Open("telegram.config.json")
-	if err != nil {
-		return Config{}, err
-	}
-	defer file.Close()
+func getConfig() Config {
 
-	byteValue, err := io.ReadAll(file)
+	err := godotenv.Load()
 	if err != nil {
-		return Config{}, err
-	}
-
-	var config Config
-	err = json.Unmarshal(byteValue, &config)
-	if err != nil {
-		return Config{}, err
+		log.Fatalf("unable to load .env file: %e", err)
 	}
 
-	return config, nil
+	cfg := Config{
+		TelegramApiToken: os.Getenv("TELEGRAM_API_TOKEN"),
+		ChatId:           os.Getenv("CHAT_ID"),
+		ApiKey:           os.Getenv("API_KEY"),
+		Port:             os.Getenv("PORT"),
+		AllowOrigins:     os.Getenv("ALLOW_ORIGINS"),
+	}
+
+	if len(cfg.TelegramApiToken) == 0 {
+		log.Fatal("TELEGRAM_API_TOKEN not provided")
+	}
+
+	if len(cfg.ChatId) == 0 {
+		log.Fatal("CHAT_ID not provided")
+	}
+
+	if len(cfg.ApiKey) == 0 {
+		log.Fatal("API_KEY not provided")
+	}
+
+	if len(cfg.Port) == 0 {
+		log.Fatal("PORT not provided")
+	}
+
+	return cfg
+
 }
 
 func sendTelegramNotification(message string, config Config) error {
 
 	client := &http.Client{}
-	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", config.TelegramAPIToken)
+	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", config.TelegramApiToken)
 	data := url.Values{
-		"chat_id":    {strconv.Itoa(config.ChatID)},
-		"text":       {message},
-		"parse_mode": {"Markdown"},
+		"chat_id": {config.ChatId},
+		"text":    {message},
 	}
 	response, err := client.PostForm(apiURL, data)
 	if err != nil {
 		return err
 	}
-	fmt.Println(apiURL, response.Status)
 	response.Body.Close()
 
 	return nil
 }
 
-func handleTelegramMessage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Method is not supported.", http.StatusNotFound)
-		return
-	}
-
-	var request PushNotificationRequest
-
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	config, err := getConfig()
-	if err != nil {
-		fmt.Fprintf(w, "Failed to read config: %s", err)
-		return
-	}
-
-	if request.ApiKey == config.ApiKey {
-		sendTelegramNotification(request.Message, config)
-		fmt.Fprintf(w, "Push notification sent: %s", request.Message)
-		return
-	} else {
-		fmt.Fprintf(w, "ApiKey is incorrect: %s", request.ApiKey)
-		return
-	}
-
-}
-
 func main() {
 
-	config, err := getConfig()
-	if err != nil {
-		log.Panicf("Failed to read config: %s", err)
-		os.Exit(1)
+	config := getConfig()
+
+	app := fiber.New()
+
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "POST",
+		AllowHeaders: "*",
+	}))
+	app.Use(logger.New())
+	app.Use(recover.New())
+
+	app.Post("/push-notification-to-telegram", func(c *fiber.Ctx) error {
+		var err error
+
+		notification := new(PushNotificationRequest)
+		if err = c.BodyParser(notification); err != nil {
+			return err
+		}
+
+		if notification.ApiKey != config.ApiKey {
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, invalid apikey"})
+		}
+
+		err = sendTelegramNotification(notification.Message, config)
+		if err != nil {
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, cannot reach telegram"})
+		}
+		return c.JSON(map[string]string{"status": "success, message sent"})
+
+	})
+
+	appErr := app.Listen(":" + config.Port)
+	if appErr != nil {
+		log.Fatal(appErr.Error())
 	}
-
-	http.HandleFunc("/send-push-notification-to-telegram", handleTelegramMessage)
-
-	fmt.Println("Server is started...")
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(config.Port), nil))
 }

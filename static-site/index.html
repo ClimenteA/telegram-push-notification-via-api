@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <title>Example contact form</title>
+</head>
+
+<body style="display: flex; place-content: center;">
+
+    <article style="min-width: 600px; margin-top: 10%;">
+        <h3>Send us a message:</h3>
+        <form id="contact-form">
+            <div style="display:none;">
+                <input type="text" name="messageType" value="" tabindex="-1" autocomplete="off">
+            </div>
+            <input type="email" name="email" placeholder="Email" aria-label="Email" autocomplete="email" />
+            <textarea name="message" placeholder="Tell us how we can help you..." aria-label="Message"></textarea>
+            <button type="submit">Send message</button>
+        </form>
+    </article>
+
+    <script>
+
+        document.getElementById('contact-form').addEventListener('submit', async function (event) {
+            event.preventDefault()
+            if (document.getElementsByName('messageType')[0].value !== '') {
+                event.preventDefault()
+                return false
+            }
+
+            let headersList = {
+                "Accept": "*/*",
+                "Content-Type": "application/json"
+            }
+
+            let formData = new FormData(event.target)
+            let formObject = Object.fromEntries(formData.entries())
+
+            let bodyContent = JSON.stringify({
+                "message": JSON.stringify(formObject),
+                "apikey": "ANEmmjVyys2Np1cly3X5hbsPw1wlWd4F7XtzNtXi68"
+            })
+
+            console.log(bodyContent)
+
+            let response = await fetch("http://myapi.localhost/push-notification-to-telegram", {
+                method: "POST",
+                body: bodyContent,
+                headers: headersList
+            })
+
+            let data = await response.json()
+            
+            console.log(data)
+            
+            if (data["status"].startsWith("success")) {
+                alert("message sent")
+            } else {
+                alert("failed to send message")
+            }
+        })
+
+
+
+    </script>
+
+</body>
+
+</html>
