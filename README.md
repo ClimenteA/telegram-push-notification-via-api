@@ -1,16 +1,14 @@
-# Push Notifications API
+# Push Notifications API (Telegram)
 
-Useful for server notifications. Send a `POST` request to `/push-notification-to-telegram` from your server and be notified on your telegram app.
-
-
-# Quickstart
+[Telegram](https://telegram.org/) is an alternative to WhatsApp Messenger which has a free api which we can use to send messages from the server.
+This repo is useful for people who have one or more static sites with contact forms and want to be notified when someone sent a message thru that contact form. 
 
 
-Go server binary can be created with this command:
-```shell
-GOOS=linux GOARCH=amd64 go build -o dist/server server.go
-```
-You can use the binary from `Releases` if you don't want to build it yourself.
+## Quickstart
+
+This repo contains all you need to ship a ton of static sites on a small 5$ VPS. Checkout [bunjucks](https://github.com/ClimenteA/bunjucks) a simple static site generator (SSG) if you have to create custom multi-page static websites (any SSG will do). In the [bunjucks](https://github.com/ClimenteA/bunjucks) repo `docker-deploy` folder you will see how to serve multiple static sites with [Caddy](https://caddyserver.com/) (free SSL and fast). Of course, you could just use this as another rest api service in your app.
+
+Google `how to make a telegram bot` and follow the steps there to get info needed for the `.env` file.
 
 Fill the `.env` file:
 
@@ -24,26 +22,28 @@ PORT=4500 - port on which the GoFiber server will start
 One way to get the chat_id you can find it [here](https://dev.to/climentea/push-notifications-from-server-with-telegram-bot-api-32b3).
 
 
-Update `Caddyfile` with your domains (currently setup is for local tests).
-Then, `docker-compose build --no-cache` to build the containers.
-Finally, `docker-compose up -d --force-recreate` to run in background.
+Download the zip from Releases, install docker on your VPS or laptop, add your static site, modify Caddyfile and run `docker-compose up -d`;
 
 
+## Development
+
+This app is a small Go/Fiber api which makes a post request to Telegram. 
+
+- clone this repo;
+- install [Go](https://go.dev/);
+- run `make build` to build binary needed in Dockerfile;
+- run `make dev` just to see if everything is working fine;
+- run `make up` to serve the app in production;
 
 
-Checkout `static-site\index.html` from this repo to see an example on how you can send a message from a contact form straight to telegram.
+Checkout `static-site\index.html` from this repo to see an example on how you can send a message from a contact form to telegram.
 
 From any static site you just make a fetch post request to `/push-notification-to-telegram` with body:
 ```json
 {
-  "message": "some message here, even some string json",
+  "message": "some message here",
   "apikey": "YjqkpUhZX9MFxhelTTyzg6cbzN4KYu4pbROsyYP5yc"
 }
 ```
 
-You can also use any server side language to make that post request (ex: another service in docker-compose.yml file).
-
-
-# Why?
-
-I need to be notified (for free) somehow that someone (or somebot) sent me a message thru my static sites contact forms. 
+Using this API you can keep your Bot Api secrets a bit safer than just making them public in a static site. 
