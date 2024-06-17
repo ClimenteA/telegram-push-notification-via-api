@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"net/url"
@@ -22,6 +25,12 @@ import (
 type PushNotificationRequest struct {
 	Message string `json:"message"`
 	ApiKey  string `json:"apikey"`
+}
+
+type PushNotificationContent struct {
+	MessageType string `json:"messageType"`
+	Email       string `json:"email"`
+	Message     string `json:"message"`
 }
 
 type Config struct {
@@ -117,7 +126,32 @@ func main() {
 			return c.JSON(map[string]string{"status": "failed, invalid apikey"})
 		}
 
-		err = sendTelegramNotification(notification.Message, config)
+		var msg PushNotificationContent
+		err = json.Unmarshal([]byte(notification.Message), &msg)
+		if err != nil {
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, body"})
+		}
+
+		const tmpl = `
+MESSAGE_TYPE: 
+{{.MessageType}}
+EMAIL: 
+{{.Email}}
+MESSAGE:
+{{.Message}}
+`
+
+		t := template.Must(template.New("contact").Parse(tmpl))
+		buf := new(bytes.Buffer)
+		err = t.Execute(buf, msg)
+		if err != nil {
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, invalid body"})
+		}
+
+		err = sendTelegramNotification(buf.String(), config)
+
 		if err != nil {
 			c.Status(500)
 			return c.JSON(map[string]string{"status": "failed, cannot reach telegram"})

@@ -14,7 +14,8 @@
         <h3>Send us a message:</h3>
         <form id="contact-form">
             <div style="display:none;">
-                <input type="text" name="messageType" value="" tabindex="-1" autocomplete="off">
+                <input type="text" name="confirm-email" value="" tabindex="-1" autocomplete="off">
+                <input type="text" name="messageType" value="contact" tabindex="-1" autocomplete="off">
             </div>
             <input type="email" name="email" placeholder="Email" aria-label="Email" autocomplete="email" />
             <textarea name="message" placeholder="Tell us how we can help you..." aria-label="Message"></textarea>
@@ -26,7 +27,7 @@
 
         document.getElementById('contact-form').addEventListener('submit', async function (event) {
             event.preventDefault()
-            if (document.getElementsByName('messageType')[0].value !== '') {
+            if (document.getElementsByName('confirm-email')[0].value !== '') {
                 event.preventDefault()
                 return false
             }
