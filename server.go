@@ -133,6 +133,11 @@ func main() {
 			return c.JSON(map[string]string{"status": "failed, body"})
 		}
 
+		if len(msg.Email) == 0 || len(msg.Message) == 0 || len(msg.MessageType) == 0 {
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, body"})
+		}
+
 		const tmpl = `
 MESSAGE_TYPE: 
 {{.MessageType}}

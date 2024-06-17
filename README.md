@@ -6,7 +6,7 @@ This repo is useful for people who have one or more static sites with contact fo
 
 ## Quickstart
 
-This repo contains all you need to ship a ton of static sites on a small 5$ VPS. Checkout [bunjucks](https://github.com/ClimenteA/bunjucks) a simple static site generator (SSG) if you have to create custom multi-page static websites (any SSG will do). In the [bunjucks](https://github.com/ClimenteA/bunjucks) repo `docker-deploy` folder you will see how to serve multiple static sites with [Caddy](https://caddyserver.com/) (free SSL and fast). Of course, you could just use this as another rest api service in your app.
+This repo contains all you need to ship a ton of static sites on a small 5$ VPS. Checkout [bunjucks](https://github.com/ClimenteA/bunjucks) a simple static site generator (SSG) if you have to create custom multi-page static websites (any SSG will do). Of course, you could just use this as another rest api service in your app.
 
 Google `how to make a telegram bot` and follow the steps there to get info needed for the `.env` file.
 
@@ -27,7 +27,7 @@ Download the zip from Releases, install docker on your VPS or laptop, add your s
 
 ## Development
 
-This app is a small Go/Fiber api which makes a post request to Telegram. 
+This app is a small Go/Fiber api which makes a post request to Telegram (that's it). 
 
 - clone this repo;
 - install [Go](https://go.dev/);

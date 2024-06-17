@@ -1,3 +1,5 @@
 dist
 telegram.config.json
 .env
+release
+*.zip
