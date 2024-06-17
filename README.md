@@ -12,7 +12,7 @@ GOOS=linux GOARCH=amd64 go build -o dist/server server.go
 ```
 You can use the binary from `Releases` if you don't want to build it yourself.
 
-Contents of `.env` file:
+Fill the `.env` file:
 
 ```shell
 TELEGRAM_API_TOKEN=BOTTOKEN:FROM:BotFather
@@ -22,6 +22,13 @@ PORT=4500 - port on which the GoFiber server will start
 ```
 
 One way to get the chat_id you can find it [here](https://dev.to/climentea/push-notifications-from-server-with-telegram-bot-api-32b3).
+
+
+Update `Caddyfile` with your domains (currently setup is for local tests).
+Then, `docker-compose build --no-cache` to build the containers.
+Finally, `docker-compose up -d --force-recreate` to run in background.
+
+
 
 
 Checkout `static-site\index.html` from this repo to see an example on how you can send a message from a contact form straight to telegram.
@@ -34,7 +41,7 @@ From any static site you just make a fetch post request to `/push-notification-t
 }
 ```
 
-You can also use any server side language to make a post request (ex: another service in docker-compose.yml file).
+You can also use any server side language to make that post request (ex: another service in docker-compose.yml file).
 
 
 # Why?
