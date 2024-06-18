@@ -40,10 +40,14 @@
             let formData = new FormData(event.target)
             let formObject = Object.fromEntries(formData.entries())
 
-            let bodyContent = JSON.stringify({
-                "message": JSON.stringify(formObject),
-                "apikey": "ANEmmjVyys2Np1cly3X5hbsPw1wlWd4F7XtzNtXi68"
-            })
+            let bodyContent = JSON.stringify(
+                {
+                    "messageType": formObject.messageType,
+                    "email": formObject.email,
+                    "message": formObject.message,
+                    "apikey": "ANEmmjVyys2Np1cly3X5hbsPw1wlWd4F7XtzNtXi68"
+                }
+            )
 
             console.log(bodyContent)
 
@@ -54,9 +58,9 @@
             })
 
             let data = await response.json()
-            
+
             console.log(data)
-            
+
             if (data["status"].startsWith("success")) {
                 alert("message sent")
             } else {

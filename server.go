@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -10,6 +9,9 @@ import (
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -22,23 +24,35 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type PushNotificationRequest struct {
-	Message string `json:"message"`
-	ApiKey  string `json:"apikey"`
+type PushNotificationContent struct {
+	MessageType string `json:"messageType" db:"MessageType"`
+	Email       string `json:"email" db:"Email"`
+	Message     string `json:"message" db:"Message"`
+	ApiKey      string `json:"apikey"`
 }
 
-type PushNotificationContent struct {
-	MessageType string `json:"messageType"`
-	Email       string `json:"email"`
-	Message     string `json:"message"`
+type MsgTableRow struct {
+	MessageType string `json:"messageType" db:"MessageType"`
+	Email       string `json:"email" db:"Email"`
+	Message     string `json:"message" db:"Message"`
+	Timestamp   string `json:"timestamp" db:"Timestamp"`
 }
+
+var schema = `
+CREATE TABLE IF NOT EXISTS messages (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+    MessageType TEXT,
+    Email TEXT,
+    Message TEXT,
+	Timestamp TEXT
+);`
 
 type Config struct {
-	TelegramApiToken string `env:"TELEGRAM_API_TOKEN,required"`
-	ChatId           string `env:"CHAT_ID,required"`
-	ApiKey           string `env:"API_KEY,required"`
-	Port             string `env:"PORT,required"`
-	AllowOrigins     string `env:"ALLOW_ORIGINS,required"`
+	TelegramApiToken string `env:"TELEGRAM_API_TOKEN"`
+	ChatId           string `env:"CHAT_ID"`
+	ApiKey           string `env:"API_KEY"`
+	Port             string `env:"PORT"`
+	AllowOrigins     string `env:"ALLOW_ORIGINS"`
 }
 
 func getConfig() Config {
@@ -97,6 +111,9 @@ func main() {
 
 	config := getConfig()
 
+	db := sqlx.MustConnect("sqlite3", "./database.sqlite")
+	db.MustExec(schema)
+
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
@@ -116,21 +133,14 @@ func main() {
 	app.Post("/push-notification-to-telegram", func(c *fiber.Ctx) error {
 		var err error
 
-		notification := new(PushNotificationRequest)
-		if err = c.BodyParser(notification); err != nil {
+		msg := new(PushNotificationContent)
+		if err = c.BodyParser(msg); err != nil {
 			return err
 		}
 
-		if notification.ApiKey != config.ApiKey {
+		if msg.ApiKey != config.ApiKey {
 			c.Status(500)
 			return c.JSON(map[string]string{"status": "failed, invalid apikey"})
-		}
-
-		var msg PushNotificationContent
-		err = json.Unmarshal([]byte(notification.Message), &msg)
-		if err != nil {
-			c.Status(500)
-			return c.JSON(map[string]string{"status": "failed, body"})
 		}
 
 		if len(msg.Email) == 0 || len(msg.Message) == 0 || len(msg.MessageType) == 0 {
@@ -152,15 +162,33 @@ MESSAGE:
 		err = t.Execute(buf, msg)
 		if err != nil {
 			c.Status(500)
-			return c.JSON(map[string]string{"status": "failed, invalid body"})
+			return c.JSON(map[string]string{"status": "failed, invalid text"})
 		}
 
 		err = sendTelegramNotification(buf.String(), config)
-
 		if err != nil {
 			c.Status(500)
 			return c.JSON(map[string]string{"status": "failed, cannot reach telegram"})
 		}
+
+		tx := db.MustBegin()
+		_, dberr := tx.NamedExec("INSERT INTO messages (MessageType, Email, Message, Timestamp) VALUES (:MessageType, :Email, :Message, :Timestamp)", &MsgTableRow{
+			MessageType: msg.MessageType,
+			Email:       msg.Email,
+			Message:     msg.Message,
+			Timestamp:   time.Now().Format(time.RFC3339),
+		})
+		if dberr != nil {
+			tx.Rollback()
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, cannot save message"})
+		}
+		dberr = tx.Commit()
+		if dberr != nil {
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, cannot save message"})
+		}
+
 		return c.JSON(map[string]string{"status": "success, message sent"})
 
 	})
