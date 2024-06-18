@@ -37,7 +37,6 @@ From any static site you just make a fetch post request to `/push-notification-t
   "messageType": "contact",
   "email": "alin@gmail.com",
   "message": "some message here",
-  "timestamp": "",
   "apikey": "YjqkpUhZX9MFxhelTTyzg6cbzN4KYu4pbROsyYP5yc"
 }
 ```
