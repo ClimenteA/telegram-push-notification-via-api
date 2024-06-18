@@ -4,3 +4,4 @@ telegram.config.json
 release
 *.zip
 *.sqlite
+curlrequests

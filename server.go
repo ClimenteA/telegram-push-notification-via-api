@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -23,6 +25,10 @@ import (
 
 	"github.com/joho/godotenv"
 )
+
+type BotToken struct {
+	TelegramApiToken string `json:"telegramApiToken"`
+}
 
 type PushNotificationContent struct {
 	MessageType string `json:"messageType" db:"MessageType"`
@@ -48,11 +54,11 @@ CREATE TABLE IF NOT EXISTS messages (
 );`
 
 type Config struct {
-	TelegramApiToken string `env:"TELEGRAM_API_TOKEN"`
-	ChatId           string `env:"CHAT_ID"`
-	ApiKey           string `env:"API_KEY"`
-	Port             string `env:"PORT"`
-	AllowOrigins     string `env:"ALLOW_ORIGINS"`
+	TelegramApiToken   string `env:"TELEGRAM_API_TOKEN"`
+	ChatId             string `env:"CHAT_ID"`
+	ApiKey             string `env:"API_KEY"`
+	Port               string `env:"PORT"`
+	MaxRequestsPerHour int    `env:"MAX_REQUESTS_PER_HOUR"`
 }
 
 func getConfig() Config {
@@ -62,12 +68,20 @@ func getConfig() Config {
 		log.Fatalf("unable to load .env file: %e", err)
 	}
 
+	maxRequestsPerHour := 1
+	if os.Getenv("MAX_REQUESTS_PER_HOUR") != "" {
+		maxRequestsPerHour, err = strconv.Atoi(os.Getenv("MAX_REQUESTS_PER_HOUR"))
+		if err != nil {
+			log.Fatal("MAX_REQUESTS_PER_HOUR must be a number")
+		}
+	}
+
 	cfg := Config{
-		TelegramApiToken: os.Getenv("TELEGRAM_API_TOKEN"),
-		ChatId:           os.Getenv("CHAT_ID"),
-		ApiKey:           os.Getenv("API_KEY"),
-		Port:             os.Getenv("PORT"),
-		AllowOrigins:     os.Getenv("ALLOW_ORIGINS"),
+		TelegramApiToken:   os.Getenv("TELEGRAM_API_TOKEN"),
+		ChatId:             os.Getenv("CHAT_ID"),
+		ApiKey:             os.Getenv("API_KEY"),
+		Port:               os.Getenv("PORT"),
+		MaxRequestsPerHour: maxRequestsPerHour,
 	}
 
 	if len(cfg.TelegramApiToken) == 0 {
@@ -111,7 +125,9 @@ func main() {
 
 	config := getConfig()
 
-	db := sqlx.MustConnect("sqlite3", "./database.sqlite")
+	dbPath := "./database.sqlite"
+
+	db := sqlx.MustConnect("sqlite3", dbPath)
 	db.MustExec(schema)
 
 	app := fiber.New()
@@ -119,16 +135,66 @@ func main() {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowHeaders: "*",
-		AllowMethods: "POST",
+		AllowMethods: "POST, DELETE",
 	}))
 	app.Use(limiter.New(limiter.Config{
-		Max:               20,
-		Expiration:        30 * time.Second,
+		Max:               config.MaxRequestsPerHour,
+		Expiration:        1 * time.Hour,
 		LimiterMiddleware: limiter.SlidingWindow{},
 	}))
 	app.Use(helmet.New())
 	app.Use(logger.New())
 	app.Use(recover.New())
+
+	app.Delete("/clear-db", func(c *fiber.Ctx) error {
+		var err error
+
+		msg := new(BotToken)
+		if err = c.BodyParser(msg); err != nil {
+			return err
+		}
+
+		if msg.TelegramApiToken != config.TelegramApiToken {
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, invalid apikey"})
+		}
+
+		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+			c.Status(fiber.StatusNotFound)
+			return c.JSON(map[string]string{"status": "failed, file not found"})
+		}
+
+		_, err = db.Exec("DELETE FROM messages")
+		if err != nil {
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, unable to delete messages"})
+		}
+
+		return c.JSON(map[string]string{"status": "success, all messages deleted"})
+
+	})
+
+	app.Post("/download-db", func(c *fiber.Ctx) error {
+		var err error
+
+		msg := new(BotToken)
+		if err = c.BodyParser(msg); err != nil {
+			return err
+		}
+
+		if msg.TelegramApiToken != config.TelegramApiToken {
+			c.Status(500)
+			return c.JSON(map[string]string{"status": "failed, invalid apikey"})
+		}
+
+		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+			c.Status(404)
+			return c.JSON(map[string]string{"status": "failed, file not found"})
+		}
+
+		return c.Download(dbPath, filepath.Base(dbPath))
+
+	})
 
 	app.Post("/push-notification-to-telegram", func(c *fiber.Ctx) error {
 		var err error

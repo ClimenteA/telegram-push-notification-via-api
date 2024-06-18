@@ -18,6 +18,7 @@ TELEGRAM_API_TOKEN=BOTTOKEN:FROM:BotFather
 CHAT_ID=number-chat-id-after-first-exchange-message
 API_KEY=openssl rand -base64 33 | tr '+/' '-_' or something else
 PORT=4500 - port on which the GoFiber server will start
+MAX_REQUESTS_PER_HOUR=1 - a naive way of not getting super spammed by bots or malicious requests
 ```
 
 
@@ -41,18 +42,32 @@ From any static site you just make a fetch post request to `/push-notification-t
 }
 ```
 
+Here is how you can download locally the database.sqlite file:
 
-To copy sqlite db from inside the container you can do the following:
-- `docker-compose up -d --force-recreate`;
-- `docker ps` - to get the container id of the push-api service;
 ```shell
-CONTAINER ID   IMAGE              COMMAND                  CREATED         STATUS         PORTS                                                                                         NAMES
-51a176bf8048 <<THIS   release-push-api   "/home/server"           2 minutes ago   Up 5 seconds   0.0.0.0:4500->4500/tcp, :::4500->4500/tcp                                                     telegram-push-notification-bot-api
-f151059a2be1   caddy:2-alpine     "caddy run --config …"   17 hours ago    Up 5 seconds   0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp, 443/udp, 2019/tcp   telegram-static-website-caddy-proxy
+curl -X POST \
+  'localhost:4500/download-db' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+  "telegramApiToken": "your bot father api token"
+}' --output backup_database.sqlite
 ```
 
-- `docker cp 51a176bf8048:/home/database.sqlite ./`;
+Once you have a backup of your dababase locally you can delete all rows:
 
+```shell
+curl  -X DELETE \
+  'localhost:4500/clear-db' \
+  --header 'Accept: */*' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+  "telegramApiToken": "your bot father api token"
+}'
+```
+
+**NOTE:** By default only one request per hour is allowed. That's because a contact form is usually completed once by one person. You can remove/modify the rate limiter from server.go and rebuild. 
+You can also increase the number of requests in `MAX_REQUESTS_PER_HOUR` variable from `.env` file. 
 
 ## Why?
 
